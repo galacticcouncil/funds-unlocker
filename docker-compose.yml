@@ -3,16 +3,12 @@ version: '3.8'
 services:
   # Funds unlocker bot - runs every 10 minutes to release deposits
   funds-unlocker:
-    # Replace with your Docker Hub image (e.g., username/funds-unlocker:latest)
     image: mirind4/funds-unlocker:latest
 
-    # Environment variables for configuration
     environment:
-      # WebSocket RPC endpoint for the blockchain node
-      # Use wss:// for remote nodes or ws://host.docker.internal:9999 for local nodes
       RPC_ENDPOINT: wss://hydration.ibp.network
 
-    # Mount secrets into the container at /run/secrets/
+    # Mount account.json and password
     secrets:
       - account_json
       - account_password
@@ -20,31 +16,25 @@ services:
     # Override the default command to read secrets and pass them to bot-loop.sh
     command: sh -c 'exec ./bot-loop.sh "$${RPC_ENDPOINT}" /run/secrets/account_json "$$(cat /run/secrets/account_password)"'
 
-    # Deployment configuration for Docker Swarm
     deploy:
-      # Number of replicas (keep at 1 to avoid duplicate transactions)
       replicas: 1
 
-      # Restart policy
       restart_policy:
         condition: on-failure
         delay: 5s
         max_attempts: 3
         window: 120s
 
-      # Update configuration for zero-downtime deployments
       update_config:
         parallelism: 1
         order: start-first
         failure_action: rollback
         delay: 10s
 
-      # Rollback configuration
       rollback_config:
         parallelism: 1
         order: start-first
 
-      # Resource limits (optional but recommended)
       resources:
         limits:
           cpus: '0.5'
@@ -53,26 +43,22 @@ services:
           cpus: '0.1'
           memory: 128M
 
-    # Logging configuration
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
 
-    # Networks (using default overlay network in Swarm)
     networks:
       - funds-unlocker-network
 
-# Define networks
 networks:
   funds-unlocker-network:
     driver: overlay
     attachable: true
 
-# Define secrets (create these before deploying the stack)
 secrets:
-  # account.json file - contains the account keystore
+  # account.json file - contains the account keystore exported from polkadot.js
   account_json:
     external: true
 
