@@ -53,11 +53,64 @@ async function main() {
     await cryptoWaitReady();
     const signer = loadSigner(accountJsonPath, accountPassword);
 
-    console.log(`Submitting ${pairs.length} individual extrinsic(s) as ${signer.address}...\n`);
+    console.log(`Checking lockdown status for ${pairs.length} asset(s)...\n`);
 
-    for (let i = 0; i < pairs.length; i++) {
-        const p = pairs[i];
-        console.log(`[${i + 1}/${pairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
+    // Get current block number
+    const currentBlock = (await api.query.system.number()).toNumber();
+    console.log(`Current block: ${currentBlock}\n`);
+
+    // Filter out assets that are still in lockdown
+    const releasablePairs = [];
+    const lockedPairs = [];
+
+    for (const p of pairs) {
+        const lockdownState = await api.query.circuitBreaker.assetLockdownState(p.assetId);
+
+        if (lockdownState.isSome) {
+            const lockdown = lockdownState.unwrap();
+
+            // Check if it's a Locked variant with an 'until' block
+            if (lockdown.isLocked) {
+                const untilBlock = lockdown.asLocked.toNumber();
+
+                if (untilBlock >= currentBlock) {
+                    console.log(`  ⚠️  Asset ${p.assetId.toString()} is still in lockdown until block ${untilBlock} (current: ${currentBlock})`);
+                    lockedPairs.push({ ...p, untilBlock });
+                } else {
+                    console.log(`  ✓  Asset ${p.assetId.toString()} lockdown expired at block ${untilBlock}`);
+                    releasablePairs.push(p);
+                }
+            } else {
+                console.log(`  ✓  Asset ${p.assetId.toString()} is not locked`);
+                releasablePairs.push(p);
+            }
+        } else {
+            console.log(`  ✓  Asset ${p.assetId.toString()} has no lockdown state`);
+            releasablePairs.push(p);
+        }
+    }
+
+    console.log(`\nSummary: ${releasablePairs.length} releasable, ${lockedPairs.length} still locked\n`);
+
+    if (lockedPairs.length > 0) {
+        console.log('Assets still in lockdown:');
+        for (const p of lockedPairs) {
+            console.log(`  - Asset ${p.assetId.toString()}: locked until block ${p.untilBlock} (${p.untilBlock - currentBlock} blocks remaining)`);
+        }
+        console.log('');
+    }
+
+    if (releasablePairs.length === 0) {
+        console.log('No releasable deposits found (all assets still in lockdown).');
+        await api.disconnect();
+        return;
+    }
+
+    console.log(`Submitting ${releasablePairs.length} individual extrinsic(s) as ${signer.address}...\n`);
+
+    for (let i = 0; i < releasablePairs.length; i++) {
+        const p = releasablePairs[i];
+        console.log(`[${i + 1}/${releasablePairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
 
         const extrinsic = api.tx.circuitBreaker.releaseDeposit(p.who, p.assetId);
 
@@ -94,7 +147,11 @@ async function main() {
         console.log('');
     }
 
-    console.log('All releaseDeposit submissions complete.');
+    console.log(`All releaseDeposit submissions complete (${releasablePairs.length} succeeded).`);
+
+    if (lockedPairs.length > 0) {
+        console.log(`\nNote: ${lockedPairs.length} asset(s) were skipped due to active lockdown.`);
+    }
 
     await api.disconnect();
 }
