@@ -1,4 +1,0 @@
--create new account with some funds, store it in keepass
--add account.json to dockerfile via https://chatgpt.com/c/68f8ce45-9fd8-8330-9461-bc5d3ddc3c9a
--add coker compose for locally buiilding
--build and deploy shit

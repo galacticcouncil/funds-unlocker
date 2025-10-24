@@ -1,4 +1,4 @@
-// Script to print all Tokens::Reserves storage entries
+// Script to print all Tokens::Reserves storage entries, for debugging purposes
 import { ApiPromise, WsProvider } from '@polkadot/api';
 
 async function main() {
