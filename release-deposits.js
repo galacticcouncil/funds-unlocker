@@ -99,7 +99,7 @@ async function main() {
 
     console.log(`Submitting ${releasablePairs.length} individual extrinsic(s) as ${signer.address}...\n`);
 
-    // Release each deposit one by one
+    // Release each deposit one by one to prevent filling a block too much and any tx error.
     for (let i = 0; i < releasablePairs.length; i++) {
         const p = releasablePairs[i];
         console.log(`[${i + 1}/${releasablePairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
@@ -115,20 +115,22 @@ async function main() {
                         console.log(`  Included in block: ${status.asInBlock.toHex()} (txHash: ${txHash.toHex()})`);
                     } else if (status.isFinalized) {
                         console.log(`  Finalized in block: ${status.asFinalized.toHex()}`);
+                    }
 
-                        if (dispatchError) {
-                            if (dispatchError.isModule) {
-                                const decoded = api.registry.findMetaError(dispatchError.asModule);
-                                const errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                                console.error(`  DispatchError: ${errorInfo}`);
-                            } else {
-                                console.error(`  DispatchError: ${dispatchError.toString()}`);
-                            }
-                            unsubscribePromise.then((unsub) => unsub()).catch(() => {});
-                            reject(new Error('Extrinsic failed'));
-                            return;
+                    if (dispatchError && (status.isInBlock || status.isFinalized)) {
+                        if (dispatchError.isModule) {
+                            const decoded = api.registry.findMetaError(dispatchError.asModule);
+                            const errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+                            console.error(`  DispatchError: ${errorInfo}`);
+                        } else {
+                            console.error(`  DispatchError: ${dispatchError.toString()}`);
                         }
+                        unsubscribePromise.then((unsub) => unsub()).catch(() => {});
+                        reject(new Error('Extrinsic failed'));
+                        return;
+                    }
 
+                    if (status.isFinalized) {
                         unsubscribePromise.then((unsub) => unsub()).catch(() => {});
                         resolve();
                     }
