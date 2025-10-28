@@ -5,7 +5,6 @@ WORKDIR /home/node/bot
 
 COPY package*.json ./
 COPY release-deposits.js ./
-COPY account.json ./
 COPY bot-loop.sh ./
 
 RUN chown -R node: /home/node/bot && chmod +x bot-loop.sh
