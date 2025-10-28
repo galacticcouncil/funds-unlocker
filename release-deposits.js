@@ -57,35 +57,36 @@ async function main() {
     const currentBlock = (await api.query.system.number()).toNumber();
     console.log(`Current block: ${currentBlock}\n`);
 
-    // Filter out assets that are still in lockdown
     const releasablePairs = [];
     let lockedCount = 0;
 
     for (const p of pairs) {
         const lockdownState = await api.query.circuitBreaker.assetLockdownState(p.assetId);
 
-        if (lockdownState.isSome) {
-            const lockdown = lockdownState.unwrap();
-
-            if (lockdown.isLocked) {
-                const untilBlock = lockdown.asLocked.toNumber();
-
-                if (untilBlock >= currentBlock) {
-                    const blocksRemaining = untilBlock - currentBlock;
-                    console.log(`  ⚠️  Asset ${p.assetId.toString()} is still in lockdown until block ${untilBlock} (${blocksRemaining} blocks remaining)`);
-                    lockedCount++;
-                } else {
-                    console.log(`  ✓  Asset ${p.assetId.toString()} lockdown expired at block ${untilBlock}`);
-                    releasablePairs.push(p);
-                }
-            } else {
-                console.log(`  ✓  Asset ${p.assetId.toString()} is not locked`);
-                releasablePairs.push(p);
-            }
-        } else {
+        if (lockdownState.isNone) {
             console.log(`  ✓  Asset ${p.assetId.toString()} has no lockdown state`);
             releasablePairs.push(p);
+            continue;
         }
+
+        const lockdown = lockdownState.unwrap();
+
+        if (!lockdown.isLocked) {
+            console.log(`  ✓  Asset ${p.assetId.toString()} is not locked`);
+            releasablePairs.push(p);
+            continue;
+        }
+
+        const untilBlock = lockdown.asLocked.toNumber();
+        if (untilBlock >= currentBlock) {
+            const blocksRemaining = untilBlock - currentBlock;
+            console.log(`  ⚠️  Asset ${p.assetId.toString()} is still in lockdown until block ${untilBlock} (${blocksRemaining} blocks remaining)`);
+            lockedCount++;
+            continue;
+        }
+
+        console.log(`  ✓  Asset ${p.assetId.toString()} lockdown expired at block ${untilBlock}`);
+        releasablePairs.push(p);
     }
 
     console.log(`\nSummary: ${releasablePairs.length} releasable, ${lockedCount} still locked\n`);
@@ -98,7 +99,7 @@ async function main() {
 
     console.log(`Submitting ${releasablePairs.length} individual extrinsic(s) as ${signer.address}...\n`);
 
-    // Process each releasable pair
+    // Release each deposit one by one
     for (let i = 0; i < releasablePairs.length; i++) {
         const p = releasablePairs[i];
         console.log(`[${i + 1}/${releasablePairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
