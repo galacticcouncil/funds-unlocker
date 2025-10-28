@@ -54,7 +54,6 @@ async function main() {
 
     console.log(`Checking lockdown status for ${pairs.length} asset(s)...\n`);
 
-    // Get current block number
     const currentBlock = (await api.query.system.number()).toNumber();
     console.log(`Current block: ${currentBlock}\n`);
 
@@ -68,7 +67,6 @@ async function main() {
         if (lockdownState.isSome) {
             const lockdown = lockdownState.unwrap();
 
-            // Check if it's a Locked variant with an 'until' block
             if (lockdown.isLocked) {
                 const untilBlock = lockdown.asLocked.toNumber();
 
@@ -100,6 +98,7 @@ async function main() {
 
     console.log(`Submitting ${releasablePairs.length} individual extrinsic(s) as ${signer.address}...\n`);
 
+    // Process each releasable pair
     for (let i = 0; i < releasablePairs.length; i++) {
         const p = releasablePairs[i];
         console.log(`[${i + 1}/${releasablePairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
@@ -136,10 +135,9 @@ async function main() {
                 .catch(reject);
         });
 
-        console.log('');
     }
 
-    console.log(`All releaseDeposit submissions complete (${releasablePairs.length} succeeded).`);
+    console.log(`\nAll releaseDeposit submissions complete (${releasablePairs.length} succeeded).`);
 
     if (lockedCount > 0) {
         console.log(`\nNote: ${lockedCount} asset(s) were skipped due to active lockdown.`);
