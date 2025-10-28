@@ -40,8 +40,7 @@ async function main() {
         console.log('-----------------------------------');
         console.log(`Account: ${p.who.toString()}`);
         console.log(`Asset ID: ${p.assetId.toString()}`);
-        console.log(`Reserves: ${JSON.stringify(p.human, null, 2)}`);
-        console.log('');
+        console.log(`Reserves: ${JSON.stringify(p.human, null, 2)}\n`);
     }
 
     if (pairs.length === 0) {
