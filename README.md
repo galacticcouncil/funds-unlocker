@@ -69,7 +69,7 @@ docker run -v $(pwd)/account.json:/home/node/bot/account.json \
 
 Install dependencies:
 ```bash
-npm ci
+npm ci --ignore-scripts
 ```
 
 Run the script:
