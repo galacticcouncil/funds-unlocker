@@ -25,7 +25,7 @@ async function main() {
     const entries = await api.query.tokens.reserves.entries();
 
     const pairs = entries
-        .filter(([key, value]) => {
+        .filter(([, value]) => {
             const reserves = value.toHuman();
             return reserves.some((reserve) => reserve.id === 'depositc');
         })
@@ -60,7 +60,7 @@ async function main() {
 
     // Filter out assets that are still in lockdown
     const releasablePairs = [];
-    const lockedPairs = [];
+    let lockedCount = 0;
 
     for (const p of pairs) {
         const lockdownState = await api.query.circuitBreaker.assetLockdownState(p.assetId);
@@ -73,8 +73,9 @@ async function main() {
                 const untilBlock = lockdown.asLocked.toNumber();
 
                 if (untilBlock >= currentBlock) {
-                    console.log(`  ⚠️  Asset ${p.assetId.toString()} is still in lockdown until block ${untilBlock} (current: ${currentBlock})`);
-                    lockedPairs.push({ ...p, untilBlock });
+                    const blocksRemaining = untilBlock - currentBlock;
+                    console.log(`  ⚠️  Asset ${p.assetId.toString()} is still in lockdown until block ${untilBlock} (${blocksRemaining} blocks remaining)`);
+                    lockedCount++;
                 } else {
                     console.log(`  ✓  Asset ${p.assetId.toString()} lockdown expired at block ${untilBlock}`);
                     releasablePairs.push(p);
@@ -89,15 +90,7 @@ async function main() {
         }
     }
 
-    console.log(`\nSummary: ${releasablePairs.length} releasable, ${lockedPairs.length} still locked\n`);
-
-    if (lockedPairs.length > 0) {
-        console.log('Assets still in lockdown:');
-        for (const p of lockedPairs) {
-            console.log(`  - Asset ${p.assetId.toString()}: locked until block ${p.untilBlock} (${p.untilBlock - currentBlock} blocks remaining)`);
-        }
-        console.log('');
-    }
+    console.log(`\nSummary: ${releasablePairs.length} releasable, ${lockedCount} still locked\n`);
 
     if (releasablePairs.length === 0) {
         console.log('No releasable deposits found (all assets still in lockdown).');
@@ -148,8 +141,8 @@ async function main() {
 
     console.log(`All releaseDeposit submissions complete (${releasablePairs.length} succeeded).`);
 
-    if (lockedPairs.length > 0) {
-        console.log(`\nNote: ${lockedPairs.length} asset(s) were skipped due to active lockdown.`);
+    if (lockedCount > 0) {
+        console.log(`\nNote: ${lockedCount} asset(s) were skipped due to active lockdown.`);
     }
 
     await api.disconnect();
