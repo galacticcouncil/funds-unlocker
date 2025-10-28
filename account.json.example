@@ -1,0 +1,14 @@
+{
+  "encoded": "YOUR_ENCRYPTED_PRIVATE_KEY_HERE",
+  "encoding": {
+    "content": ["pkcs8", "sr25519"],
+    "type": ["scrypt", "xsalsa20-poly1305"],
+    "version": "3"
+  },
+  "address": "5EXAMPLE_ADDRESS_HERE",
+  "meta": {
+    "genesisHash": null,
+    "name": "YourAccountName",
+    "whenCreated": 1234567890123
+  }
+}
