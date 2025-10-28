@@ -1,10 +1,8 @@
 {
-  "name": "init-testnet",
+  "name": "funds-unlocker",
   "version": "1.0.0",
-  "description": "Script to init empty hydradx parachain for testing purposes.",
-  "main": "index.js",
+  "description": "Script to unlock deposit funds locked coming from circuit breeaker asset lockdowns on Hydration",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "type": "module",
   "author": "",
