@@ -24,17 +24,17 @@ async function main() {
     console.log('Fetching all Tokens::Reserves entries...\n');
     const entries = await api.query.tokens.reserves.entries();
 
-    const filteredEntries = entries.filter(([key, value]) => {
-        const reserves = value.toHuman();
-        return reserves.some((reserve) => reserve.id === 'depositc');
-    });
+    const pairs = entries
+        .filter(([key, value]) => {
+            const reserves = value.toHuman();
+            return reserves.some((reserve) => reserve.id === 'depositc');
+        })
+        .map(([key, value]) => {
+            const [accountId, currencyId] = key.args;
+            return { who: accountId, assetId: currencyId, human: value.toHuman() };
+        });
 
-    console.log(`Found ${filteredEntries.length} entries with id "depositc" (out of ${entries.length} total)\n`);
-
-    const pairs = filteredEntries.map(([key, value]) => {
-        const [accountId, currencyId] = key.args;
-        return { who: accountId, assetId: currencyId, human: value.toHuman() };
-    });
+    console.log(`Found ${pairs.length} entries with id "depositc" (out of ${entries.length} total)\n`);
 
     for (const p of pairs) {
         console.log('-----------------------------------');
