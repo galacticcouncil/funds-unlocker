@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # Funds unlocker bot - runs every 10 minutes to release deposits
   funds-unlocker:
-    image: mirind4/funds-unlocker:latest
+    image: ghcr.io/galacticcouncil/funds-unlocker:latest
 
     environment:
       RPC_ENDPOINT: wss://hydration.ibp.network
