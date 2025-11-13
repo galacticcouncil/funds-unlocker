@@ -24,24 +24,23 @@ async function main() {
     console.log('Fetching all Tokens::Reserves entries...\n');
     const entries = await api.query.tokens.reserves.entries();
 
-    const pairs = entries
-        .filter(([, value]) => {
-            const reserves = value.toHuman();
-            return reserves.some((reserve) => reserve.id === 'depositc');
-        })
-        .map(([key, value]) => {
+    const pairs = [];
+
+    for (const [key, value] of entries) {
+        const reserves = value.toHuman();
+        if (reserves.some((reserve) => reserve.id === 'depositc')) {
             const [accountId, currencyId] = key.args;
-            return { who: accountId, assetId: currencyId, human: value.toHuman() };
-        });
+            const pair = { who: accountId, assetId: currencyId, human: reserves };
+            pairs.push(pair);
+
+            console.log('-----------------------------------');
+            console.log(`Account: ${pair.who.toString()}`);
+            console.log(`Asset ID: ${pair.assetId.toString()}`);
+            console.log(`Reserves: ${JSON.stringify(pair.human, null, 2)}\n`);
+        }
+    }
 
     console.log(`Found ${pairs.length} entries with id "depositc" (out of ${entries.length} total)\n`);
-
-    for (const p of pairs) {
-        console.log('-----------------------------------');
-        console.log(`Account: ${p.who.toString()}`);
-        console.log(`Asset ID: ${p.assetId.toString()}`);
-        console.log(`Reserves: ${JSON.stringify(p.human, null, 2)}\n`);
-    }
 
     if (pairs.length === 0) {
         console.log('No matching reserves found. Nothing to release.');
