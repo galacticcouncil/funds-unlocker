@@ -96,50 +96,70 @@ async function main() {
         return;
     }
 
-    console.log(`Submitting ${releasablePairs.length} individual extrinsic(s) as ${signer.address}...\n`);
+    console.log(`Submitting ${releasablePairs.length} extrinsic(s) as ${signer.address}...\n`);
 
-    // Release each deposit one by one to prevent filling a block too much and any tx error.
-    for (let i = 0; i < releasablePairs.length; i++) {
-        const p = releasablePairs[i];
-        console.log(`[${i + 1}/${releasablePairs.length}] Releasing deposit for ${p.who.toString()} / ${p.assetId.toString()}...`);
+    // Submit batches per block: fire X TXs → wait for next block → repeat.
+    const BATCH_SIZE = 10;
+    let batchIndex = 0;
+    let successCount = 0;
+    let failureCount = 0;
 
-        const extrinsic = api.tx.circuitBreaker.releaseDeposit(p.who, p.assetId);
+    await new Promise(async (resolve) => {
+        let nonce = await api.rpc.system.accountNextIndex(signer.address);
 
-        await new Promise((resolve, reject) => {
-            const unsubscribePromise = extrinsic
-                .signAndSend(signer, (result) => {
-                    const { status, dispatchError, txHash } = result;
+        const unsubscribe = api.rpc.chain.subscribeNewHeads(() => {
+            const start = batchIndex * BATCH_SIZE;
 
-                    if (status.isInBlock) {
-                        console.log(`  Included in block: ${status.asInBlock.toHex()} (txHash: ${txHash.toHex()})`);
-                    } else if (status.isFinalized) {
-                        console.log(`  Finalized in block: ${status.asFinalized.toHex()}`);
-                    }
+            if (start >= releasablePairs.length) {
+                setTimeout(() => {
+                    unsubscribe.then(unsub => unsub());
+                    resolve();
+                }, 10000); // wait 10s for last TXs to be included
+                return;
+            }
 
-                    if (dispatchError && (status.isInBlock || status.isFinalized)) {
-                        if (dispatchError.isModule) {
-                            const decoded = api.registry.findMetaError(dispatchError.asModule);
-                            const errorInfo = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                            console.error(`  DispatchError: ${errorInfo}`);
-                        } else {
-                            console.error(`  DispatchError: ${dispatchError.toString()}`);
+            const batch = releasablePairs.slice(start, start + BATCH_SIZE);
+            console.log(`\n[Batch ${batchIndex + 1}] Submitting ${batch.length} TX(s)...`);
+
+            batch.forEach((p, i) => {
+                const txNum = start + i + 1;
+                const currentNonce = nonce++;
+
+                console.log(`  [${txNum}/${releasablePairs.length}] ${p.who.toString()} / ${p.assetId.toString()} (nonce: ${currentNonce})`);
+
+                api.tx.circuitBreaker.releaseDeposit(p.who, p.assetId)
+                    .signAndSend(signer, { nonce: currentNonce }, ({ status, dispatchError }) => {
+                        if (status.isInBlock) {
+                            if (dispatchError) {
+                                failureCount++;
+                                let errorMsg;
+                                if (dispatchError.isModule) {
+                                    const decoded = api.registry.findMetaError(dispatchError.asModule);
+                                    errorMsg = `${decoded.section}.${decoded.name}`;
+                                } else {
+                                    errorMsg = dispatchError.toString();
+                                }
+                                console.error(`    [${txNum}] Failed: ${errorMsg}`);
+                            } else {
+                                successCount++;
+                                console.log(`    [${txNum}] Success`);
+                            }
                         }
-                        unsubscribePromise.then((unsub) => unsub()).catch(() => {});
-                        reject(new Error('Extrinsic failed'));
-                        return;
-                    }
+                    })
+                    .catch((err) => {
+                        failureCount++;
+                        console.error(`    [${txNum}] Submit error: ${err.message || err}`);
+                    });
+            });
 
-                    if (status.isFinalized) {
-                        unsubscribePromise.then((unsub) => unsub()).catch(() => {});
-                        resolve();
-                    }
-                })
-                .catch(reject);
+            batchIndex++;
         });
+    });
 
-    }
-
-    console.log(`\nAll releaseDeposit submissions complete (${releasablePairs.length} succeeded).`);
+    console.log(`\n--- Summary ---`);
+    console.log(`Submitted: ${releasablePairs.length}`);
+    console.log(`Success: ${successCount}`);
+    console.log(`Failed: ${failureCount}`);
 
     if (lockedCount > 0) {
         console.log(`\nNote: ${lockedCount} asset(s) were skipped due to active lockdown.`);
