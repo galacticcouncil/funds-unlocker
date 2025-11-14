@@ -101,8 +101,6 @@ async function main() {
     // Submit batches per block: fire X TXs → wait for next block → repeat.
     const BATCH_SIZE = 10;
     let batchIndex = 0;
-    let successCount = 0;
-    let failureCount = 0;
 
     await new Promise(async (resolve) => {
         let nonce = await api.rpc.system.accountNextIndex(signer.address);
@@ -130,7 +128,6 @@ async function main() {
                 api.tx.circuitBreaker.releaseDeposit(p.who, p.assetId)
                     .signAndSend(signer, { nonce: currentNonce }, ({ status, dispatchError }) => {
                         if (dispatchError) {
-                            failureCount++;
                             let errorMsg;
                             if (dispatchError.isModule) {
                                 const decoded = api.registry.findMetaError(dispatchError.asModule);
@@ -140,12 +137,10 @@ async function main() {
                             }
                             console.error(`    [${txNum}] Failed: ${errorMsg}`);
                         } else if (status.isInBlock) {
-                            successCount++;
                             console.log(`    [${txNum}] Success`);
                         }
                     })
                     .catch((err) => {
-                        failureCount++;
                         console.error(`    [${txNum}] Submit error: ${err.message || err}`);
                     });
             });
@@ -155,9 +150,8 @@ async function main() {
     });
 
     console.log(`\n--- Summary ---`);
-    console.log(`Submitted: ${releasablePairs.length}`);
-    console.log(`Success: ${successCount}`);
-    console.log(`Failed: ${failureCount}`);
+    console.log(`\nBot execitoon has been finished`);
+    console.log(`\nSubmitted: ${releasablePairs.length}`);
 
     if (lockedCount > 0) {
         console.log(`\nNote: ${lockedCount} asset(s) were skipped due to active lockdown.`);
