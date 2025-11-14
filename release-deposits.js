@@ -129,21 +129,19 @@ async function main() {
 
                 api.tx.circuitBreaker.releaseDeposit(p.who, p.assetId)
                     .signAndSend(signer, { nonce: currentNonce }, ({ status, dispatchError }) => {
-                        if (status.isInBlock) {
-                            if (dispatchError) {
-                                failureCount++;
-                                let errorMsg;
-                                if (dispatchError.isModule) {
-                                    const decoded = api.registry.findMetaError(dispatchError.asModule);
-                                    errorMsg = `${decoded.section}.${decoded.name}`;
-                                } else {
-                                    errorMsg = dispatchError.toString();
-                                }
-                                console.error(`    [${txNum}] Failed: ${errorMsg}`);
+                        if (dispatchError) {
+                            failureCount++;
+                            let errorMsg;
+                            if (dispatchError.isModule) {
+                                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                                errorMsg = `${decoded.section}.${decoded.name}`;
                             } else {
-                                successCount++;
-                                console.log(`    [${txNum}] Success`);
+                                errorMsg = dispatchError.toString();
                             }
+                            console.error(`    [${txNum}] Failed: ${errorMsg}`);
+                        } else if (status.isInBlock) {
+                            successCount++;
+                            console.log(`    [${txNum}] Success`);
                         }
                     })
                     .catch((err) => {
