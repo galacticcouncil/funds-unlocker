@@ -1,0 +1,16 @@
+{
+  "name": "funds-unlocker",
+  "version": "1.0.0",
+  "description": "Script to unlock deposit funds locked coming from circuit breeaker asset lockdowns on Hydration",
+  "scripts": {
+  },
+  "type": "module",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@polkadot/api": "^16.4.3",
+    "@polkadot/keyring": "^13.5.1",
+    "@polkadot/util": "^13.5.1",
+    "@polkadot/util-crypto": "^13.5.1"
+  }
+}
